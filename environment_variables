@@ -1,0 +1,12 @@
+#eample 
+BIN_VERSION="1.2.0"
+BASE="${HOME}/Documents/DeepVariant"
+INPUT_DIR="${BASE}/input"
+REF="R64_103_2.fa"
+FILE="SRR2967880"
+BAM="SRR2967880.bam"
+OUTPUT_DIR="${BASE}/output"
+DATA_DIR="${INPUT_DIR}/data"
+OUTPUT_VCF="${FILE}.output.vcf.gz"
+OUTPUT_GVCF="${FILE}.output.g.vcf.gz"
+

@@ -1,0 +1,107 @@
+	https://www.ncbi.nlm.nih.gov/bioproject/PRJNA303109
+alias SRR2967875='AWRI1427_Lalvin_WSK_27'
+alias SRR2967880='AWRI1432_Vin7'
+alias SRR2967907='AWRI1537_Vin13'
+alias SRR2968002='AWRI2877_Fermivin'
+alias SRR2968036='WLP001_California_Ale'
+alias SRR2968044='WLP705_Sake'
+alias SRR2967901='AWRI1498_Lalvin_EC1118'
+
+cd ~/
+mkdir ~/align
+mkdir ~/align/ref
+mkdir ~/align/data 
+mkdir ~/align/input
+mkdir ~/align/output
+OUTPUT=~/align/output
+INPUT=~/align/input
+OUTPUT=~/align/output
+DATADIR=~/align/data
+REFERENCE=~/align/ref/R64.103.fa
+
+#OR
+cd ~/Documents
+mkdir ~/Documents/Deepvariant
+mkdir ~/Documents/DeepVariant/ref
+mkdir ~/Documents/DeepVariant/data
+mkdir ~/Documents/DeepVariant/input
+mkdir ~/Documents/DeepVariant/output
+WORKDIR=~/Documents/DeepVariant
+DATADIR=~/Documents/DeepVariant/data
+REFERENCE=~/Documents/DeepVariant/ref/R64.103.fa
+
+cd $WORKDIR/align
+cd ~/data
+fastq-dump --split-3 --gzip $(< accession.list)
+
+# If not installed:
+# On Linux/Ubuntu
+sudo apt-get update
+sudo apt-get upgrade
+sudo ap-get install fastq-dump
+
+# SacCer3 assmbly: https://www.ncbi.nlm.nih.gov/assembly/GCF_000146045.2/
+# fasta file in R64.103.fa
+cd ~/align/ref/
+# make sure seqkit faidx R64.103.fa.fai
+# OR execute
+# seqkit faidx R64.103.fa
+
+# decompress, Align reads samtools
+# move to working directory
+echo "Current dir: " $PWD}
+
+for file in SRR2967875 SRR2967880 SRR2967907 SRR2968002 SRR2968036 SRR2968044 SRR2967901; do
+gzip -d $DATADIR/"$file"_1.fastq.gz $DATADIR/"$file"_2.fastq.gz
+# 
+reapr smaltmap -n 4 $REFERENCE $DATADIR/"$file"_1.fastq $DATADIR/"$file"_2.fastq "$file".bam 
+# 
+samtools mpileup -uf $REFERENCE  "$file".bam -d 8000 | bcftools call -mv -Oz -o sorted_"$file".vcf.gz
+# 
+tabix sorted_"$file".vcf.gz
+# 
+# samtools flagstat "$file".bam > "$file"_flagstat.stdout
+#
+gzip $DATADIR/"$file"_1.fastq $DATADIR/"$file"_2.fastq
+#
+done
+
+# install docker
+# sudo apt-get update; sudo apt-get upgrade ; sudo apt-get install docker
+
+#
+# google/deepvariant  BIN_VERSION="1.3.0" Size on drive 5.71GB
+docker pull  google/deepvariant
+
+## A run is about 45min per each of the bam-files "Intel(R) Core(TM) i7-6700 CPU @ 3.40GHz" used 8-12GB RAM. 
+
+for k in SRR2967875 SRR2967880 SRR2967907 SRR2968002 SRR2968036 SRR2968044 SRR2967901 ; do for i in I II III IV V VI VII VIII IX X XI XII XIII XIV XV XVI Mito; do docker run \
+  -v "${PWD}/input":"/input" \
+  -v "${PWD}/output/Chr"$i"":"/output/Chr"$i"" \
+  -v "${PWD}/reference":"/reference" \
+  google/deepvariant \
+  /opt/deepvariant/bin/run_deepvariant \
+  --model_type WGS \
+  --sample_name "$k"_Chr"$i" \
+  --ref /reference/R64_103_2.fa \
+  --reads /input/"$k".bam \
+  --output_vcf /output/Chr"$i"/"$k"_Chr"$i".output.vcf.gz \
+  --output_gvcf /output/Chr"$i"/"$k"_Chr"$i".g.vcf.gz \
+  --num_shards $(nproc) \
+  --runtime_report yes \
+  --regions "$i" \
+  --intermediate_results_dir /output/Chr"$i"/intermediate_results_dir 
+done
+done
+### COMPUTER INPUT STREAM CREATED FOR first SRR-file: 
+### "for k in SRR2967875 ; do  for i in I II III IV V VI VII VIII IX X XI XII XIII XIV XV XVI Mito; do docker run   -v "${PWD}/input":"/input"   -v "${PWD}/output/Chr"$i"":"/output/Chr"$i""   -v "${PWD}/reference":"/reference"   google/deepvariant   /opt/deepvariant/bin/run_deepvariant   --model_type WGS   --sample_name "$k"_Chr"$i"   --ref /reference/R64_103_2.fa   --reads /input/"$k".bam   --output_vcf /output/Chr"$i"/"$k"_Chr"$i".output.vcf.gz   --output_gvcf /output/Chr"$i"/"$k"_Chr"$i".g.vcf.gz   --num_shards $(nproc)   --runtime_report yes   --regions "$i"   --intermediate_results_dir /output/Chr"$i"/intermediate_results_dir ; done; done"
+###
+
+#merge DeepVariant ChrI-XVI and Mitochondria (Mito)
+for k in SRR2967875 SRR2967880 SRR2967907 SRR2968002 SRR2968036 SRR2968044 SRR2967901 ; do for i in I II III IV V VI VII VIII IX X XI XII XIII XIV XV XVI Mito; do cat output/Chr"$i"/"$k"_Chr"$i".output.vcf.gz >> Deepvariant_vcf/merge_Deepvariant_"$k".vcf.gz ; done ; done
+
+#Annotate the merged  Deepvariant vcf.gz file
+# for k in SRR2967875 SRR2967880 SRR2967907 SRR2968002 SRR2968036 SRR2968044 SRR2967901; do snpEff -v -canon R64-1-1.75 merge_Deepvariant_"$k".vcf.gz > merge_Deepvariant_"$k".vcf.ann ; mv snpEff_summary.html Deepvariant_"$k"_summary.html ; mv snpEff_genes.txt Deepvariant_"$k"_genes.txt ; gzip merge_Deepvariant_"$k".vcf.ann ; bcftools index -n merge_Deepvariant_"$k".vcf.ann.gz ; done
+
+# Done enjoy output from Artifical intelligence from Google DeepMind: https://www.deepmind.com/ applied on Yeast wine strains 
+
